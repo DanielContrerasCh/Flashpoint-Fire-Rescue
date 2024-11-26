@@ -89,44 +89,72 @@ void GenerateScenario(ScenarioData scenario)
             }
         }
 
-        // Procesar los puntos de entrada (puertas abiertas)
-        foreach (var entry in scenario.entryPoints)
+        // Modificar el procesamiento de los puntos de entrada
+    foreach (var entry in scenario.entryPoints)
+    {
+        string cellValue = scenario.cells[entry.x - 1][entry.y - 1];
+        
+        // Determinar qué paredes remover basado en la posición del entry point
+        bool isTopEdge = entry.x == 1;
+        bool isBottomEdge = entry.x == scenario.cells.Length;
+        bool isLeftEdge = entry.y == 1;
+        bool isRightEdge = entry.y == scenario.cells[0].Length;
+
+        if (isTopEdge)
         {
-            // Verificar qué paredes existen en la celda del punto de entrada
-            string cellValue = scenario.cells[entry.x - 1][entry.y - 1];
-            
-            // Para cada pared en la celda del punto de entrada
-            for (int i = 0; i < 4; i++)
+            // Remover pared superior y paredes adyacentes que comparten esquina
+            wallsToSkip.Add($"{entry.x},{entry.y},top");
+            if (isLeftEdge)
             {
-                if (cellValue[i] == '1')
-                {
-                    // Determinar qué celdas adyacentes están involucradas basándonos en la pared
-                    switch (i)
-                    {
-                        case 0: // Pared superior
-                            wallsToSkip.Add($"{entry.x},{entry.y},top");
-                            if (entry.x > 1)
-                                wallsToSkip.Add($"{entry.x - 1},{entry.y},bottom");
-                            break;
-                        case 1: // Pared izquierda
-                            wallsToSkip.Add($"{entry.x},{entry.y},left");
-                            if (entry.y > 1)
-                                wallsToSkip.Add($"{entry.x},{entry.y - 1},right");
-                            break;
-                        case 2: // Pared inferior
-                            wallsToSkip.Add($"{entry.x},{entry.y},bottom");
-                            if (entry.x < scenario.cells.Length)
-                                wallsToSkip.Add($"{entry.x + 1},{entry.y},top");
-                            break;
-                        case 3: // Pared derecha
-                            wallsToSkip.Add($"{entry.x},{entry.y},right");
-                            if (entry.y < scenario.cells[0].Length)
-                                wallsToSkip.Add($"{entry.x},{entry.y + 1},left");
-                            break;
-                    }
-                }
+                wallsToSkip.Add($"{entry.x},{entry.y},left");
+            }
+            if (isRightEdge)
+            {
+                wallsToSkip.Add($"{entry.x},{entry.y},right");
             }
         }
+        else if (isBottomEdge)
+        {
+            // Remover pared inferior y paredes adyacentes que comparten esquina
+            wallsToSkip.Add($"{entry.x},{entry.y},bottom");
+            if (isLeftEdge)
+            {
+                wallsToSkip.Add($"{entry.x},{entry.y},left");
+            }
+            if (isRightEdge)
+            {
+                wallsToSkip.Add($"{entry.x},{entry.y},right");
+            }
+        }
+        else if (isLeftEdge)
+        {
+            // Remover pared izquierda y paredes adyacentes que comparten esquina
+            wallsToSkip.Add($"{entry.x},{entry.y},left");
+        }
+        else if (isRightEdge)
+        {
+            // Remover pared derecha y paredes adyacentes que comparten esquina
+            wallsToSkip.Add($"{entry.x},{entry.y},right");
+        }
+
+        // Manejar las paredes de las celdas adyacentes
+        if (isTopEdge && entry.x > 1)
+        {
+            wallsToSkip.Add($"{entry.x - 1},{entry.y},bottom");
+        }
+        if (isBottomEdge && entry.x < scenario.cells.Length)
+        {
+            wallsToSkip.Add($"{entry.x + 1},{entry.y},top");
+        }
+        if (isLeftEdge && entry.y > 1)
+        {
+            wallsToSkip.Add($"{entry.x},{entry.y - 1},right");
+        }
+        if (isRightEdge && entry.y < scenario.cells[0].Length)
+        {
+            wallsToSkip.Add($"{entry.x},{entry.y + 1},left");
+        }
+    }
 
         // Generar paredes, saltando aquellas que coinciden con puertas o puntos de entrada
         for (int row = 0; row < scenario.cells.Length; row++)
