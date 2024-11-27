@@ -82,25 +82,6 @@ def get_map():
             "traceback": traceback.format_exc()
         }
         return jsonify(error_info), 500
-
-@app.route('/api/map/validate', methods=['POST'])
-def validate_map():
-    try:
-        map_data = parse_map_file('map.txt')
-        validation = {
-            "valid": True,
-            "cells_count": len(map_data["cells"]),
-            "poi_count": len(map_data["pointsOfInterest"]),
-            "fire_positions_count": len(map_data["firePositions"]),
-            "doors_count": len(map_data["doors"]),
-            "entry_points_count": len(map_data["entryPoints"])
-        }
-        return jsonify(validation)
-    except Exception as e:
-        return jsonify({
-            "valid": False,
-            "error": str(e)
-        }), 400
     
 @app.route('/api/simulation', methods=['GET'])
 def run_simulation():
@@ -111,10 +92,10 @@ def run_simulation():
         walls, markers, fire_markers, doors, entrances = parse_file('map.txt')
         model = BoardModel(6, 8, walls, doors, entrances, markers, fire_markers)
         
-        simulation_steps = 100  # Número de pasos de simulación
+        simulation_steps = 500  # Número de pasos de simulación
         simulation_results = []
         
-        for _ in range(simulation_steps):
+        while not model.check_termination_conditions():
             model.step()
             grid_state = model.datacollector.get_model_vars_dataframe().iloc[-1].to_dict()
             simulation_results.append({

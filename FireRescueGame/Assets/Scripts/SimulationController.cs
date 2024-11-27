@@ -226,7 +226,10 @@ public class SimulationData
     public List<FireData> fires;
     public List<SmokeData> smokes;
     public float[][] grid;
+    public List<WallData> walls; // Nueva
+    public List<DoorData> doors; // Nueva
 }
+
 
 [System.Serializable]
 public class Agent
@@ -247,4 +250,22 @@ public class SmokeData
 {
     public int row;
     public int col;
+}
+
+[System.Serializable]
+public class WallData
+{
+    public int row;
+    public int col;
+    public string direction; // "N", "E", "S", "W"
+}
+
+[System.Serializable]
+public class DoorData
+{
+    public int row1;
+    public int col1;
+    public int row2;
+    public int col2;
+    public bool is_open;
 }

@@ -35,12 +35,33 @@ import pandas as pd
 import copy
 
 def get_distance(pos1, pos2):
+    """
+    Calcula la distancia Euclidiana entre dos posiciones.
+
+    Args:
+        pos1 (tuple): Coordenadas (fila, columna) de la primera posición.
+        pos2 (tuple): Coordenadas (fila, columna) de la segunda posición.
+
+    Returns:
+        float: Distancia Euclidiana entre pos1 y pos2.
+    """
     x = pos1[0] - pos2[0]
     y = pos1[1] - pos2[1]
     d = np.sqrt(x**2 + y**2)
     return d
 
 def find_door(current_pos, next_pos, doors):
+    """
+    Encuentra la puerta entre dos posiciones si existe.
+
+    Args:
+        current_pos (tuple): Posición actual (row, col).
+        next_pos (tuple): Posición objetivo (row, col).
+        doors (list): Lista de puertas.
+
+    Returns:
+        dict or None: Diccionario de la puerta si existe, de lo contrario None.
+    """
     for door in doors:
         if ((door['row1'], door['col1']) == current_pos and (door['row2'], door['col2']) == next_pos) or \
            ((door['row2'], door['col2']) == current_pos and (door['row1'], door['col1']) == next_pos):
@@ -48,6 +69,18 @@ def find_door(current_pos, next_pos, doors):
     return None
 
 def can_move(current_pos, next_pos, walls_grid, doors):
+    """
+    Verifica si se puede mover de current_pos a next_pos considerando paredes y puertas.
+
+    Args:
+        current_pos (tuple): Posición actual (row, col).
+        next_pos (tuple): Posición objetivo (row, col).
+        walls_grid (list): Grid de paredes.
+        doors (list): Lista de puertas.
+
+    Returns:
+        bool: True si se puede mover, False de lo contrario.
+    """
     current_row, current_col = current_pos
     next_row, next_col = next_pos
 
@@ -82,10 +115,6 @@ def can_move(current_pos, next_pos, walls_grid, doors):
     else:
         return True  # No hay pared en esa dirección
 
-def is_border_position(pos, width, height):
-    row, col = pos
-    return row == 0 or row == height - 1 or col == 0 or col == width - 1
-
 class FireFighterAgent(Agent):
     def __init__(self, id, model, ap=4):
         super().__init__(id, model)
@@ -96,101 +125,76 @@ class FireFighterAgent(Agent):
         self.assigned_POI = None  # POI asignado al agente
 
     def step(self):
-        if self.ap <= 0:
-            return
+            if self.ap <= 0:
+                return
 
-        if self.is_carrying:
-            if self.target_entrance is None:
-                self.get_nearest_entrance()
-            self.rescue_victim()
-        else:
-            if self.assigned_POI is None:
-                # Intentar asignar un POI
-                self.model.assign_POI(self)
-
-            if self.assigned_POI:
-                self.move_towards_poi()
+            if self.is_carrying:
+                if self.target_entrance is None:
+                    self.get_nearest_entrance()
+                self.rescue_victim()
             else:
-                # Extinguir fuego o humo si no hay POIs disponibles
-                action_taken = self.extinguish_fire_or_smoke()
-                if not action_taken:
+                if self.assigned_POI is None:
+                    # Intentar asignar un POI
+                    self.model.assign_POI(self)
+
+                if self.assigned_POI:
+                    self.move_towards_poi()
+                else:
                     self.move_randomly()
 
-
     def move_towards_poi(self):
+        """
+        Mueve al agente hacia el POI asignado.
+        """
         if self.pos == self.assigned_POI:
-            # Interactuar con el POI al llegar
-            self.interact_with_poi()
-            return
-
-        possible_positions = self.model.grid.get_neighborhood(self.pos, moore=False, include_center=False)
-        current_distance = get_distance(self.pos, self.assigned_POI)
-        moved = False
-
-        for position in possible_positions:
-            # Verificar si la posición es accesible
-            can_move, door = self.can_move(self.pos, position, self.model.walls_grid, self.model.doors)
-            new_distance = get_distance(position, self.assigned_POI)
-
-            if can_move and new_distance < current_distance:
-                # Mover al agente
-                self.model.grid.move_agent(self, position)
-                self.ap -= 1
-                moved = True
-                break
-
-            if door and not door['is_open'] and self.ap >= 1:
-                # Abrir la puerta
-                door['is_open'] = True
-                self.ap -= 1
-                self.model.grid.move_agent(self, position)
-                moved = True
-                break
-
-            # Si hay una pared bloqueando, intentar romperla
-            if not can_move and self.ap >= 1:
-                wall_key = self.get_wall_key(self.pos, position)
-                if wall_key and wall_key in self.model.wall_damage:
-                    self.damage_wall(wall_key, position, new_distance, current_distance)
-                    moved = True
+            # Llegó al POI
+            self.is_carrying = True
+            # Actualizar el estado del POI en markers
+            for marker in self.model.markers:
+                if marker['row'] == self.assigned_POI[0] and marker['col'] == self.assigned_POI[1]:
+                    marker['revealed'] = True
                     break
-
-        if not moved:
-            self.move_randomly()
-
-    def get_wall_key(self, current_pos, next_pos):
-        """
-        Devuelve la clave de la pared entre dos celdas si existe.
-        """
-        direction_map = {(-1, 0): 'N', (0, 1): 'E', (1, 0): 'S', (0, -1): 'W'}
-        delta = (next_pos[0] - current_pos[0], next_pos[1] - current_pos[1])
-        if delta in direction_map:
-            direction = direction_map[delta]
-            return (current_pos, direction)
-        return None
-
-    def damage_wall(self, wall_key, next_pos, new_distance, current_distance):
-        if wall_key in self.model.wall_damage:
-            self.model.wall_damage[wall_key] += 1
-
-            if self.model.wall_damage[wall_key] >= 2:
-                # Destruir la pared usando el método del modelo
-                current_pos, direction = wall_key
-                adjacent_direction = {'N': 'S', 'E': 'W', 'S': 'N', 'W': 'E'}
-                self.model.destroy_wall(
-                    current_pos, direction, next_pos, adjacent_direction[direction]
-                )
-                self.model.total_damage += 2
-                if new_distance < current_distance:
-                    self.model.grid.move_agent(self, next_pos)
-                    self.ap -= 1
+            if self.assigned_POI in self.model.assigned_POIs:
+                self.model.assigned_POIs.remove(self.assigned_POI)
+            self.assigned_POI = None
 
         else:
-            self.model.wall_damage[wall_key] = 1
-            self.ap -= 1
+            # Mover hacia el POI asignado
+            possible_positions = self.model.grid.get_neighborhood(self.pos, moore=False, include_center=False)
+            possible_positions = list(possible_positions)
+            np.random.shuffle(possible_positions)  # Mezclar para aleatoriedad
 
+            current_distance = get_distance(self.pos, self.assigned_POI)
+            moved = False
+
+            for position in possible_positions:
+                # Verificar si la posición es accesible (sin pared o puerta abierta)
+                can_move, door = self.can_move(self.pos, position, self.model.walls_grid, self.model.doors)
+                if can_move:
+                    new_distance = get_distance(position, self.assigned_POI)
+                    if new_distance < current_distance:
+                        # Mover al agente
+                        self.model.grid.move_agent(self, position)
+                        self.ap -= 1
+                        moved = True
+                        break
+                elif door is not None and door['is_open']:
+                    new_distance = get_distance(position, self.assigned_POI)
+                    if new_distance < current_distance:
+                        # Mover al agente a través de la puerta abierta
+                        self.model.grid.move_agent(self, position)
+                        self.ap -= 1
+                        moved = True
+                        break
+
+            if not moved:
+                # Si no puede moverse hacia una posición que reduce la distancia, realizar un movimiento aleatorio
+                self.move_randomly()
 
     def get_nearest_entrance(self):
+        """
+        Identifica la entrada más cercana al agente basado en la distancia Euclidiana.
+        """
         min_distance = float('inf')
         closest_entrance = None
 
@@ -205,85 +209,52 @@ class FireFighterAgent(Agent):
             self.target_entrance = closest_entrance
 
     def rescue_victim(self):
-        if not self.is_carrying:
+        """
+        Mueve al agente hacia la entrada más cercana, asegurándose de que cada movimiento reduce la distancia al objetivo.
+        Considera paredes y puertas al determinar movimientos permitidos.
+        """
+        if not self.target_entrance:
             return
-
-        # Verificar si ya está en el borde del mapa (puede liberar a la víctima)
-        if is_border_position(self.pos, self.model.width, self.model.height):
+        if self.pos == self.target_entrance:
             self.is_carrying = False
             self.target_entrance = None
             self.model.rescued_victims += 1
-            return
+        else:
+            possible_positions = self.model.grid.get_neighborhood(self.pos, moore=False, include_center=False)
+            possible_positions = list(possible_positions)
+            np.random.shuffle(possible_positions)  # Mezclar para aleatoriedad
 
-        # Obtener las posiciones adyacentes
-        possible_positions = self.model.grid.get_neighborhood(self.pos, moore=False, include_center=False)
-        possible_positions = list(possible_positions)
-        np.random.shuffle(possible_positions)  # Aleatorizar
+            current_distance = get_distance(self.pos, self.target_entrance)
+            moved = False
 
-        current_distance = get_distance(self.pos, self.target_entrance) if self.target_entrance else float('inf')
-        moved = False
-
-        for position in possible_positions:
-            if is_border_position(position, self.model.width, self.model.height):
-                # Verificar si hay una pared entre la posición actual y la posición objetivo
-                delta_row, delta_col = position[0] - self.pos[0], position[1] - self.pos[1]
-                direction = None
-                if delta_row == -1 and delta_col == 0:
-                    direction = 'N'
-                elif delta_row == 1 and delta_col == 0:
-                    direction = 'S'
-                elif delta_row == 0 and delta_col == -1:
-                    direction = 'W'
-                elif delta_row == 0 and delta_col == 1:
-                    direction = 'E'
-
-                wall_key = (self.pos, direction)
-
-                if direction and wall_key in self.model.wall_damage:
-                    self.model.wall_damage[wall_key] += 1
-
-                    if self.model.wall_damage[wall_key] >= 2:
-                        # Destruir la pared del borde y mover al agente
-                        adjacent_direction = {'N': 'S', 'E': 'W', 'S': 'N', 'W': 'E'}
-                        self.model.destroy_wall(self.pos, direction, position, adjacent_direction[direction])
-                        self.model.total_damage += 2
-                        self.model.grid.move_agent(self, position)
-                        self.ap -= 2
-                        moved = True
-                        break
-                else:
-                    self.model.wall_damage[wall_key] = 1
-                    self.ap -= 1
-                    break
-
-        # Si no logró romper una pared del borde, intentar moverse hacia la entrada
-        if not moved:
             for position in possible_positions:
-                can_move, _ = self.can_move(self.pos, position, self.model.walls_grid, self.model.doors)
+                # Verificar si la posición es accesible (sin pared o puerta abierta)
+                can_move, door = self.can_move(self.pos, position, self.model.walls_grid, self.model.doors)
                 if can_move:
-                    new_distance = get_distance(position, self.target_entrance) if self.target_entrance else float('inf')
+                    new_distance = get_distance(position, self.target_entrance)
                     if new_distance < current_distance:
+                        # Mover al agente
                         self.model.grid.move_agent(self, position)
-                        self.ap -= 2
+                        self.ap -= 1
+                        moved = True
+                        break
+                elif door is not None and door['is_open']:
+                    new_distance = get_distance(position, self.target_entrance)
+                    if new_distance < current_distance:
+                        # Mover al agente a través de la puerta abierta
+                        self.model.grid.move_agent(self, position)
+                        self.ap -= 1
                         moved = True
                         break
 
-
-    def interact_with_poi(self):
-        for marker in self.model.markers:
-            if marker['row'] == self.assigned_POI[0] and marker['col'] == self.assigned_POI[1]:
-                marker['revealed'] = True
-                if marker['type'] == 'v':
-                    self.is_carrying = True
-                elif marker['type'] == 'f':
-                    self.model.markers.remove(marker)
-                break
-
-        if self.assigned_POI in self.model.assigned_POIs:
-            self.model.assigned_POIs.remove(self.assigned_POI)
-        self.assigned_POI = None
+            if not moved:
+                # Si no puede moverse hacia una posición que reduce la distancia, realizar un movimiento aleatorio
+                self.move_randomly()
 
     def move_randomly(self):
+        """
+        Movimiento aleatorio del agente cuando no está cargando una víctima.
+        """
         possible_positions = self.model.grid.get_neighborhood(self.pos, moore=False, include_center=False)
         possible_positions = list(possible_positions)
         np.random.shuffle(possible_positions)  # Mezclar para aleatoriedad
@@ -304,6 +275,18 @@ class FireFighterAgent(Agent):
                     continue  # No tiene suficiente AP para abrir la puerta
 
     def can_move(self, current_pos, next_pos, walls_grid, doors):
+        """
+        Verifica si el agente puede moverse a la posición deseada considerando paredes y puertas.
+
+        Args:
+            current_pos (tuple): Posición actual del agente.
+            next_pos (tuple): Posición objetivo.
+            walls_grid (list): Grid de paredes.
+            doors (list): Lista de puertas.
+
+        Returns:
+            tuple: (bool, door) donde bool indica si puede moverse y door es la puerta si existe.
+        """
         current_row, current_col = current_pos
         next_row, next_col = next_pos
 
@@ -338,49 +321,32 @@ class FireFighterAgent(Agent):
             return True, None  # No hay pared en esa dirección
 
     def find_door(self, current_pos, next_pos, doors):
+        """
+        Encuentra la puerta entre dos posiciones si existe.
+
+        Args:
+            current_pos (tuple): Posición actual.
+            next_pos (tuple): Posición objetivo.
+            doors (list): Lista de puertas.
+
+        Returns:
+            dict or None: Diccionario de la puerta si existe, de lo contrario None.
+        """
         for door in doors:
             if ((door['row1'], door['col1']) == current_pos and (door['row2'], door['col2']) == next_pos) or \
                ((door['row2'], door['col2']) == current_pos and (door['row1'], door['col1']) == next_pos):
                 return door
         return None
 
-    def extinguish_fire_or_smoke(self):
-        # Obtener las posiciones adyacentes y la posición actual
-        positions_to_check = self.model.grid.get_neighborhood(self.pos, moore=False, include_center=True)
-
-        for position in positions_to_check:
-            # Extinguir completamente el fuego (2 AP)
-            if position in self.model.fire_positions and self.ap >= 2:
-                self.model.fire_positions.remove(position)
-                print(f"Agente {self.unique_id} extinguió completamente el fuego en {position}.")
-                self.ap -= 2
-                return True
-
-        for position in positions_to_check:
-            # Convertir fuego en humo (1 AP)
-            if position in self.model.fire_positions and self.ap >= 1:
-                self.model.fire_positions.remove(position)
-                self.model.smoke_positions.append(position)
-                print(f"Agente {self.unique_id} convirtió fuego en humo en {position}.")
-                self.ap -= 1
-                return True
-
-        for position in positions_to_check:
-            # Extinguir humo (1 AP)
-            if position in self.model.smoke_positions and self.ap >= 1:
-                self.model.smoke_positions.remove(position)
-                print(f"Agente {self.unique_id} extinguió humo en {position}.")
-                self.ap -= 1
-                return True
-
-        return False  # No se realizó ninguna acción
-
 def get_grid(model):
     grid = np.zeros((model.grid.width, model.grid.height))  # Inicializar el grid con ceros
 
     for agent in model.schedule.agents:
         x, y = agent.pos
-        grid[x][y] = 2  # Azul para agentes que no están cargando
+        if agent.is_carrying:
+            grid[x][y] = 1  # Verde para agentes que están cargando una víctima
+        else:
+            grid[x][y] = 2  # Azul para agentes que no están cargando
 
     return grid
 
@@ -388,22 +354,35 @@ def get_doors_state(model):
     return copy.deepcopy(model.doors)
 
 def get_poi(model):
+    """
+    Devuelve una tupla con el estado de cada POI.
+    Cada POI se representa como (row, col, type, revealed).
+    """
     return tuple((marker['row'], marker['col'], marker['type'], marker['revealed']) for marker in model.markers)
 
 def get_fires_state(model):
+    """
+    Devuelve una lista con la posición de cada fuego activo.
+
+    Returns:
+        list of dict: Lista con información de cada fuego.
+    """
     return [
         {"row": pos[0], "col": pos[1]}
         for pos in model.fire_positions
     ]
 
 def get_smokes_state(model):
+    """
+    Devuelve una lista con la posición de cada humo activo.
+
+    Returns:
+        list of dict: Lista con información de cada humo.
+    """
     return [
         {"row": pos[0], "col": pos[1]}
         for pos in model.smoke_positions
     ]
-
-def get_walls_state(model):
-    return copy.deepcopy(model.walls_grid)
 
 class BoardModel(Model):
     def __init__(self, width, height, walls, doors, entrances, markers, fire_markers):
@@ -416,8 +395,6 @@ class BoardModel(Model):
         self.markers = markers
         self.fire_positions = []
         self.smoke_positions = []
-        self.total_damage = 0  # Acumula el daño total en paredes y puertas
-        self.victory_condition_met = False  # Indica si se alcanzó una condición de término
         self.aux = 0
         self.rescued_victims = 0
         self.assigned_POIs = []  # Lista para rastrear POIs asignados
@@ -432,19 +409,8 @@ class BoardModel(Model):
                 "POI": get_poi,
                 "Fires": get_fires_state,
                 "Smokes": get_smokes_state,  # Añadido para humos
-                "Walls": get_walls_state,    # Añadido para paredes
             },
         )
-
-        # Inicializar el diccionario para rastrear el daño de las paredes
-        self.wall_damage = {}
-        for row in range(self.height):
-            for col in range(self.width):
-                walls = self.walls_grid[col][row]
-                directions = ['N', 'E', 'S', 'W']
-                for idx, direction in enumerate(directions):
-                    if walls[idx] == '1':
-                        self.wall_damage[((row, col), direction)] = 0  # Daño inicial: 0
 
         # Crear todos los agentes y agregarlos a la lista de agentes por añadir
         self.agents_to_add = []
@@ -455,10 +421,19 @@ class BoardModel(Model):
         # Inicializar posiciones de fuego
         for fire in fire_markers:
             position = (fire['row'], fire['col'])
-            if 0 <= position[0] < self.height and 0 <= position[1] < self.width:
-                self.fire_positions.append(position)
+            self.fire_positions.append(position)
+            print(f"Fuego inicializado en {position}.")
 
     def assign_POI(self, agent):
+        """
+        Asigna el POI más cercano disponible al agente.
+
+        Args:
+            agent (FireFighterAgent): El agente que solicita la asignación.
+
+        Returns:
+            tuple or None: Coordenadas (row, col) del POI asignado o None si no hay disponibles.
+        """
         available_POIs = [
             (marker['row'], marker['col'])
             for marker in self.markers
@@ -481,15 +456,17 @@ class BoardModel(Model):
         return closest_POI
 
     def add_smoke(self):
+        """
+        Añade un humo en una posición aleatoria del grid y maneja las interacciones con otros humos y fuegos.
+        """
         # Elegir una posición aleatoria
         random_row = random.randint(0, self.width - 1)
         random_col = random.randint(0, self.height - 1)
         random_pos = (random_row, random_col)
-        if not self.is_within_bounds(random_pos):
-            return
 
         # 1. Verificar si el humo se añade en una posición con fuego
         if random_pos in self.fire_positions:
+            print(f"¡Explosión en {random_pos}!")
             self.handle_explosion(random_pos)
             return
 
@@ -499,25 +476,35 @@ class BoardModel(Model):
             self.smoke_positions.remove(random_pos)
             # Añadir fuego en esta posición
             self.fire_positions.append(random_pos)
+            print(f"Dos humos en {random_pos} desaparecen y se añade un fuego.")
             return
 
         # 3. Verificar si la posición está adyacente a algún fuego con conexión válida
         adjacent_positions = self.get_adjacent_positions(random_pos)
         for adj in adjacent_positions:
-            if not self.is_within_bounds(adj):
-                continue
             if adj in self.fire_positions:
                 # Verificar si hay una pared o una puerta cerrada entre random_pos y adj
                 can_comm = can_move(random_pos, adj, self.walls_grid, self.doors)
                 if can_comm:
                     # Añadir fuego en esta posición
                     self.fire_positions.append(random_pos)
+                    print(f"Humo en {random_pos} estaba adyacente a fuego con conexión válida. Se añade fuego.")
                     return
 
         # 4. Si ninguna de las condiciones anteriores se cumple, añadir el humo
         self.smoke_positions.append(random_pos)
+        print(f"Humo añadido en {random_pos}.")
 
     def get_adjacent_positions(self, pos):
+        """
+        Devuelve las posiciones adyacentes (arriba, abajo, izquierda, derecha) de una posición dada.
+
+        Args:
+            pos (tuple): Coordenadas (row, col) de la posición actual.
+
+        Returns:
+            list of tuple: Lista con las coordenadas de las posiciones adyacentes.
+        """
         row, col = pos
         adjacent = []
 
@@ -533,117 +520,47 @@ class BoardModel(Model):
         return adjacent
 
     def handle_explosion(self, pos):
-        directions = [(-1, 0, 'N', 'S'), (1, 0, 'S', 'N'), (0, -1, 'W', 'E'), (0, 1, 'E', 'W')]
+        """
+        Maneja la explosión que ocurre en la posición `pos`.
+        Propaga el fuego en las cuatro direcciones hasta encontrar una pared o una puerta cerrada.
 
-        for d_row, d_col, dir_current, dir_adjacent in directions:
-            next_pos = (pos[0] + d_row, pos[1] + d_col)
+        Args:
+            pos (tuple): Coordenadas (row, col) donde ocurre la explosión.
+        """
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # Arriba, Abajo, Izquierda, Derecha
+        for d_row, d_col in directions:
+            current_pos = pos
+            while True:
+                next_pos = (current_pos[0] + d_row, current_pos[1] + d_col)
 
-            if not self.is_within_bounds(next_pos):
-                continue
+                # Verificar que next_pos está dentro de los límites del grid
+                if not (0 <= next_pos[0] < self.height and 0 <= next_pos[1] < self.width):
+                    break  # Fuera del grid
 
-            # Si hay una pared o puerta, dañarla
-            if not can_move(pos, next_pos, self.walls_grid, self.doors):
-                wall_key = ((pos[0], pos[1]), dir_current)
-                if wall_key in self.wall_damage:
-                    self.wall_damage[wall_key] += 1
-                    if self.wall_damage[wall_key] >= 2:
-                        self.destroy_wall(pos, dir_current, next_pos, dir_adjacent)
-                        self.total_damage += 2
+                # Verificar si se puede mover desde current_pos a next_pos
+                if can_move(current_pos, next_pos, self.walls_grid, self.doors):
+                    # Añadir fuego en next_pos
+                    if next_pos not in self.fire_positions:
+                        if next_pos in self.smoke_positions:
+                            self.smoke_positions.remove(next_pos)
+                            self.fire_positions.append(next_pos)
+                            print(f"Smoke at {next_pos} replaced with fire due to explosion.")
+                        else:
+                            self.fire_positions.append(next_pos)
+                            print(f"Fire added at {next_pos} due to explosion.")
+                    # Continuar propagando en la dirección
+                    current_pos = next_pos
                 else:
-                    door = find_door(pos, next_pos, self.doors)
-                    if door and not door['is_open']:
-                        self.destroy_door(door)
-                        self.total_damage += 1
-                continue
-
-            # Propagar fuego a una celda válida
-            if next_pos in self.smoke_positions:
-                self.smoke_positions.remove(next_pos)
-                self.fire_positions.append(next_pos)
-            elif next_pos in self.fire_positions:
-                # Shockwave: propagar fuego en línea recta
-                self.propagate_shockwave(next_pos, d_row, d_col, dir_current, dir_adjacent)
-            else:
-                # Propagar fuego a una celda vacía
-                self.fire_positions.append(next_pos)
-
+                    # Si no se puede mover, detener la propagación en esta dirección
+                    print(f"Explosion propagation stopped at {next_pos} due to wall or closed door.")
+                    break
         self.process_fire_adjacent_smoke()
 
-    def propagate_shockwave(self, start_pos, d_row, d_col, dir_current, dir_adjacent):
-        current_pos = start_pos
-
-        while True:
-            next_pos = (current_pos[0] + d_row, current_pos[1] + d_col)
-
-            if not self.is_within_bounds(next_pos):
-                break
-
-            # Verificar si hay una puerta o pared bloqueando
-            if not can_move(current_pos, next_pos, self.walls_grid, self.doors):
-                # Daño a la pared, si aplica
-                wall_key = ((current_pos[0], current_pos[1]), dir_current)
-                if wall_key in self.wall_damage:
-                    self.wall_damage[wall_key] += 1
-                    if self.wall_damage[wall_key] >= 2:
-                        self.destroy_wall(current_pos, dir_current, next_pos, dir_adjacent)
-                        self.total_damage += 2
-                else:
-                    door = find_door(current_pos, next_pos, self.doors)
-                    if door and not door['is_open']:
-                        self.destroy_door(door)
-                        self.total_damage += 1
-                break
-
-            if next_pos in self.fire_positions:
-                # Continuar propagación si ya hay fuego
-                current_pos = next_pos
-                continue
-
-            if next_pos in self.smoke_positions:
-                # Convertir humo en fuego y continuar
-                self.smoke_positions.remove(next_pos)
-                self.fire_positions.append(next_pos)
-                current_pos = next_pos
-            else:
-                # Propagar fuego a celda vacía y detener
-                self.fire_positions.append(next_pos)
-                break
-
-    def destroy_door(self, door):
-        door['is_open'] = True  # La puerta ahora se considera abierta
-
-
-    def destroy_wall(self, current_pos, dir_current, adjacent_pos, dir_adjacent):
-        if not self.is_within_bounds(current_pos) or not self.is_within_bounds(adjacent_pos):
-            return
-        direction_map = {'N': 0, 'E': 1, 'S': 2, 'W': 3}  # Mapear dirección a índice de paredes
-        current_row, current_col = current_pos
-        adj_row, adj_col = adjacent_pos
-
-
-        if not self.is_within_bounds((current_row, current_col)):
-            return
-        if not self.is_within_bounds((adj_row, adj_col)):
-            return
-
-        # Convertir las paredes en '0' en ambas celdas
-        walls_current = list(self.walls_grid[current_row][current_col])
-        walls_adjacent = list(self.walls_grid[adj_row][adj_col])
-
-        walls_current[direction_map[dir_current]] = '0'
-        walls_adjacent[direction_map[dir_adjacent]] = '0'
-
-        self.walls_grid[current_row][current_col] = ''.join(walls_current)
-        self.walls_grid[adj_row][adj_col] = ''.join(walls_adjacent)
-
-
-
-    def is_within_bounds(self, pos):
-        row, col = pos
-        return 0 <= row < self.height and 0 <= col < self.width
-
-
     def process_fire_adjacent_smoke(self):
+        """
+        Procesa y convierte los humos adyacentes al fuego en fuego,
+        respetando las paredes y puertas cerradas, creando una reacción en cadena.
+        """
         conversion_occurred = True  # Flag para controlar la iteración
 
         while conversion_occurred:
@@ -662,132 +579,58 @@ class BoardModel(Model):
                             self.smoke_positions.remove(adj)
                             self.fire_positions.append(adj)
                             conversion_occurred = True
+                            print(f"Smoke at {adj} converted to fire due to adjacency with fire at {fire_pos}.")
             # Si en una iteración no se convirtió ningún humo, se detiene el bucle
 
-    def check_termination_conditions(self):
-        if self.rescued_victims >= 7:
-            return True
-        elif self.total_damage >= 24:
-            return True
-        return False
-
     def step(self):
-        try:
-            print(f"daño acumulado {self.total_damage}")
-            print(f"victimas rescatadas {self.rescued_victims}")
-            if not self.check_termination_conditions():
-                # Verificar si aún hay agentes por añadir y si el agente actual ha terminado su turno
-                if self.current_agent_index < len(self.agents_to_add):
-                    # Verificar si el agente actual ya está en el scheduler
-                    if self.current_agent_index >= len(self.schedule.agents):
-                        # Obtener el siguiente agente a añadir
-                        agent_to_add = self.agents_to_add[self.current_agent_index]
+        # Verificar si aún hay agentes por añadir y si el agente actual ha terminado su turno
+        if self.current_agent_index < len(self.agents_to_add):
+            # Verificar si el agente actual ya está en el scheduler
+            if self.current_agent_index >= len(self.schedule.agents):
+                # Obtener el siguiente agente a añadir
+                agent_to_add = self.agents_to_add[self.current_agent_index]
 
-                        # Seleccionar una entrada aleatoria
-                        entrance = self.entrances[self.aux]
+                # Seleccionar una entrada aleatoria
+                entrance = self.entrances[self.aux]
 
-                        # Convertir las coordenadas de entrada a las del grid (0-based indexing)
-                        entrance_pos = (entrance['row'], entrance['col'])
+                # Convertir las coordenadas de entrada a las del grid (0-based indexing)
+                entrance_pos = (entrance['row'], entrance['col'])
 
-                        # Validar que la posición de la entrada esté dentro de los límites del grid
-                        if 0 <= entrance_pos[0] < self.width and 0 <= entrance_pos[1] < self.height:
-                            # Colocar el agente en la entrada
-                            self.grid.place_agent(agent_to_add, entrance_pos)
+                # Validar que la posición de la entrada esté dentro de los límites del grid
+                if 0 <= entrance_pos[0] < self.width and 0 <= entrance_pos[1] < self.height:
+                    # Colocar el agente en la entrada
+                    self.grid.place_agent(agent_to_add, entrance_pos)
 
-                            # Añadir el agente al scheduler
-                            self.schedule.add(agent_to_add)
+                    # Añadir el agente al scheduler
+                    self.schedule.add(agent_to_add)
 
-                # Verificar si hay un agente activo
-                if self.current_agent_index < len(self.schedule.agents):
-                    # Obtener el agente actual
-                    current_agent = self.schedule.agents[self.current_agent_index]
+        # Verificar si hay un agente activo
+        if self.current_agent_index < len(self.schedule.agents):
+            # Obtener el agente actual
+            current_agent = self.schedule.agents[self.current_agent_index]
 
-                    # Verificar si el agente tiene AP disponible
-                    if current_agent.ap > 0:
-                        # El agente realiza una acción
-                        current_agent.step()
-                    else:
-                        # El agente ha agotado sus AP y termina su turno
-                        self.add_smoke()
-                        current_agent.ap = 4  # Restablecer los AP del agente
-                        # Pasar al siguiente agente
-                        if self.current_agent_index < 5:
-                            self.current_agent_index += 1
-                        else:
-                            self.current_agent_index = 0
-                        if self.aux < 3:
-                            self.aux += 1
-                        else:
-                            self.aux = 0
-
-                        # Revisar y rellenar POIs si es necesario
-                        self.fill_pois()
-
-                # Recolectar datos y avanzar el contador de pasos
-                self.steps += 1
-            self.datacollector.collect(self)
-
-        except Exception as e:
-            print(f"Error en el paso {self.steps}: {e}")
-            import traceback
-            traceback.print_exc()
-
-    def fill_pois(self):
-        # Contar los POIs activos y agentes que están cargando víctimas
-        active_pois = [
-            (marker['row'], marker['col'])
-            for marker in self.markers
-            if not marker['revealed']
-        ]
-        active_pois += [
-            agent.pos
-            for agent in self.schedule.agents
-            if isinstance(agent, FireFighterAgent) and agent.is_carrying
-        ]
-
-        # Si hay menos de 3, rellenar con nuevos POIs
-        while len(active_pois) < 3:
-            new_poi = self.generate_random_poi()
-            if new_poi:
-                # Si hay un agente en la posición del POI, revelar el POI de inmediato
-                if any(agent.pos == (new_poi['row'], new_poi['col']) for agent in self.schedule.agents):
-                    if new_poi['type'] == 'f':  # Falsa alarma
-                        continue  # No se añade al mapa
-                    else:
-                        # Si es una víctima, se considera parte de los POIs activos
-                        active_pois.append((new_poi['row'], new_poi['col']))
+            # Verificar si el agente tiene AP disponible
+            if current_agent.ap > 0:
+                # El agente realiza una acción
+                current_agent.step()
+            else:
+                # El agente ha agotado sus AP y termina su turno
+                print(f"Agente {current_agent.unique_id} ha terminado su turno.")
+                self.add_smoke()
+                current_agent.ap = 4  # Restablecer los AP del agente
+                # Pasar al siguiente agente
+                if self.current_agent_index < 5:
+                    self.current_agent_index += 1
                 else:
-                    self.markers.append(new_poi)
-                    active_pois.append((new_poi['row'], new_poi['col']))
+                    self.current_agent_index = 0
+                if self.aux < 3:
+                    self.aux += 1
+                else:
+                    self.aux = 0
 
-    def generate_random_poi(self):
-        max_attempts = 100
-        for _ in range(max_attempts):
-            random_row = random.randint(0, self.width - 1)
-            random_col = random.randint(0, self.height - 1)
-
-            # Verificar que la posición no esté ocupada por otro POI
-            if any(
-                random_row == marker['row'] and random_col == marker['col']
-                for marker in self.markers if not marker['revealed']
-            ):
-                continue  # La posición ya tiene un POI
-
-            # Si hay fuego o humo en la posición, eliminarlo
-            if (random_row, random_col) in self.fire_positions:
-                self.fire_positions.remove((random_row, random_col))
-            elif (random_row, random_col) in self.smoke_positions:
-                self.smoke_positions.remove((random_row, random_col))
-
-            # Crear un nuevo POI
-            return {
-                'row': random_row,
-                'col': random_col,
-                'type': random.choice(['v', 'f']),  # 'v' para víctima, 'f' para falsa alarma
-                'revealed': False
-            }
-
-        return None
+        # Recolectar datos y avanzar el contador de pasos
+        self.datacollector.collect(self)
+        self.steps += 1
 
 def parse_file(filename):
     walls_grid = []
@@ -835,6 +678,14 @@ def parse_file(filename):
     return walls_grid, markers, fire_markers, doors, entrances
 
 def draw_smoke(ax, smokes, num_rows):
+    """
+    Dibuja los humos en el grid.
+
+    Args:
+        ax (matplotlib.axes.Axes): Eje de Matplotlib donde dibujar.
+        smokes (list of dict): Lista con información de los humos.
+        num_rows (int): Número de filas del grid para ajustar coordenadas.
+    """
     for smoke in smokes:
         row, col = smoke['row'], smoke['col']
         x, y = col, num_rows - row - 1  # Ajuste para coordenadas
@@ -845,6 +696,14 @@ def draw_smoke(ax, smokes, num_rows):
         ax.scatter(x, y, marker=marker_shape, color=color, s=100)
 
 def draw_fire(ax, fires, num_rows):
+    """
+    Dibuja los fuegos en el grid.
+
+    Args:
+        ax (matplotlib.axes.Axes): Eje de Matplotlib donde dibujar.
+        fires (list of dict): Lista con información de los fuegos.
+        num_rows (int): Número de filas del grid para ajustar coordenadas.
+    """
     for fire in fires:
         row, col = fire['row'], fire['col']
         x, y = col, num_rows - row - 1  # Ajuste para coordenadas
@@ -855,6 +714,12 @@ def draw_fire(ax, fires, num_rows):
         ax.scatter(x, y, marker=marker_shape, color=color, s=200)
 
 def draw_poi(ax, markers, num_rows):
+    """
+    Dibuja los puntos de interés (POI) con colores según su estado.
+    - No revelado: cian
+    - Revelado y 'v': verde
+    - Revelado y 'f': morado
+    """
     for marker in markers:
         row, col, type_, revealed = marker
         x, y = col, num_rows - row - 1 # Ajuste para coordenadas
@@ -938,8 +803,8 @@ def draw_walls(ax, walls_grid, door_dict, entrances):
                     # No hay pared; no dibujamos nada
                     pass
 
-WIDTH = 6
-HEIGHT = 8
+WIDTH = 8
+HEIGHT = 6
 
 walls, markers, fire_markers, doors, entrances = parse_file("map.txt")
 
@@ -952,12 +817,10 @@ for door in doors:
     door_dict[(cell2, cell1)] = door
 
 model = BoardModel(WIDTH, HEIGHT, walls, doors, entrances, markers, fire_markers)
-while not model.check_termination_conditions():
+while model.steps <= 100:
     model.step()
 
 print(f"Total de pasos: {model.steps}")
-print(f"Total de víctimas salvadas: {model.rescued_victims}")
-print(f"Total de daño acumulado: {model.total_damage}")
 
 all_grids = model.datacollector.get_model_vars_dataframe()
 all_grids.head(5)
@@ -985,15 +848,12 @@ def animate(i):
         door_dict_current[(cell1, cell2)] = door
         door_dict_current[(cell2, cell1)] = door
 
-    # Obtener el estado de las paredes en el paso actual
-    walls_state = all_grids.iloc[i]["Walls"]
-
     # Mostrar los agentes primero
     grid_state = all_grids.iloc[i]["Grid"]
     ax.imshow(grid_state, cmap=custom_cmap, interpolation="none", origin='upper', extent=extent)
 
     # Dibujar paredes y puertas con el estado actual, incluyendo las entradas
-    draw_walls(ax, walls_state, door_dict_current, entrances)
+    draw_walls(ax, walls, door_dict_current, entrances)
 
     # Obtener el estado de los POIs en el paso actual
     poi_state = all_grids.iloc[i]["POI"]
@@ -1013,7 +873,6 @@ def animate(i):
 
     # Dibujar los humos
     draw_smoke(ax, smoke_state, num_rows)
-
 
 anim = animation.FuncAnimation(fig, animate, frames=model.steps)
 anim
