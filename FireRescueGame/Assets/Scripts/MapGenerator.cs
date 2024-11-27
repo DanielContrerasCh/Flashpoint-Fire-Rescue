@@ -56,7 +56,6 @@ public class MapGenerator : MonoBehaviour
 
     void Start()
     {
-        // Crear contenedores para mejor organización
         _floorsContainer = new GameObject("Floors").transform;
         _wallsContainer = new GameObject("Walls").transform;
         _itemsContainer = new GameObject("Items").transform;
@@ -65,7 +64,6 @@ public class MapGenerator : MonoBehaviour
         _wallsContainer.parent = transform;
         _itemsContainer.parent = transform;
 
-        // Iniciar la generación del mapa
         StartCoroutine(LoadScenario());
     }
 
@@ -86,7 +84,6 @@ public class MapGenerator : MonoBehaviour
             }
             GenerateScenario(scenario);
 
-            // Una vez generado el mapa, iniciar la carga de la simulación
             StartCoroutine(FetchSimulation());
         }
         else
@@ -97,13 +94,10 @@ public class MapGenerator : MonoBehaviour
 
     void GenerateScenario(ScenarioData scenario)
     {
-        // Generar el piso primero
         GenerateFloor(scenario.cells.Length, scenario.cells[0].Length);
 
-        // Crear un conjunto para almacenar las posiciones de las paredes que no deben generarse
         HashSet<string> wallsToSkip = new HashSet<string>();
 
-        // Procesar las puertas cerradas
         foreach (var door in scenario.doors)
         {
             if (door.r1 == door.r2) // Puerta horizontal
@@ -123,13 +117,10 @@ public class MapGenerator : MonoBehaviour
                 wallsToSkip.Add(wallKey2);
             }
         }
-
-        // Modificar el procesamiento de los puntos de entrada
         foreach (var entry in scenario.entryPoints)
         {
             string cellValue = scenario.cells[entry.x - 1][entry.y - 1];
             
-            // Determinar qué paredes remover basado en la posición del entry point
             bool isTopEdge = entry.x == 1;
             bool isBottomEdge = entry.x == scenario.cells.Length;
             bool isLeftEdge = entry.y == 1;
@@ -137,7 +128,6 @@ public class MapGenerator : MonoBehaviour
 
             if (isTopEdge)
             {
-                // Remover pared superior y paredes adyacentes que comparten esquina
                 wallsToSkip.Add($"{entry.x},{entry.y},top");
                 if (isLeftEdge)
                 {
@@ -150,7 +140,6 @@ public class MapGenerator : MonoBehaviour
             }
             else if (isBottomEdge)
             {
-                // Remover pared inferior y paredes adyacentes que comparten esquina
                 wallsToSkip.Add($"{entry.x},{entry.y},bottom");
                 if (isLeftEdge)
                 {
@@ -163,16 +152,14 @@ public class MapGenerator : MonoBehaviour
             }
             else if (isLeftEdge)
             {
-                // Remover pared izquierda y paredes adyacentes que comparten esquina
                 wallsToSkip.Add($"{entry.x},{entry.y},left");
             }
             else if (isRightEdge)
             {
-                // Remover pared derecha y paredes adyacentes que comparten esquina
+
                 wallsToSkip.Add($"{entry.x},{entry.y},right");
             }
 
-            // Manejar las paredes de las celdas adyacentes
             if (isTopEdge && entry.x > 1)
             {
                 wallsToSkip.Add($"{entry.x - 1},{entry.y},bottom");
@@ -191,7 +178,6 @@ public class MapGenerator : MonoBehaviour
             }
         }
 
-        // Generar paredes, saltando aquellas que coinciden con puertas o puntos de entrada
         for (int row = 0; row < scenario.cells.Length; row++)
         {
             for (int col = 0; col < scenario.cells[row].Length; col++)
@@ -276,7 +262,6 @@ public class MapGenerator : MonoBehaviour
 
     void GenerateOtherElements(ScenarioData scenario)
     {
-        // Generar puntos de interés
         foreach (var poi in scenario.pointsOfInterest)
         {
             Vector3 position = new Vector3(
@@ -322,7 +307,6 @@ public class MapGenerator : MonoBehaviour
             doorObj.tag = "Door";
         }
 
-        // Generar puntos de entrada
         foreach (var entry in scenario.entryPoints)
         {
             Vector3 position = Vector3.zero;
@@ -384,7 +368,6 @@ public class MapGenerator : MonoBehaviour
 
     void RemoveOverlappingWalls()
     {
-        // Obtener todos los colliders de las paredes
         List<Collider> wallColliders = new List<Collider>();
         foreach (Transform wall in _wallsContainer)
         {
@@ -399,24 +382,20 @@ public class MapGenerator : MonoBehaviour
             }
         }
 
-        // Lista para almacenar paredes que deben ser destruidas
         List<GameObject> wallsToDestroy = new List<GameObject>();
 
-        // Comparar cada pared con las demás para detectar colisiones
         for (int i = 0; i < wallColliders.Count; i++)
         {
             for (int j = i + 1; j < wallColliders.Count; j++)
             {
                 if (wallColliders[i].bounds.Intersects(wallColliders[j].bounds))
                 {
-                    // Decidir cuál pared destruir
-                    // Por ejemplo, destruir la pared en la posición j
+
                     wallsToDestroy.Add(wallColliders[j].gameObject);
                 }
             }
         }
 
-        // Eliminar las paredes duplicadas
         foreach (GameObject wall in wallsToDestroy)
         {
             Destroy(wall);
@@ -426,28 +405,23 @@ public class MapGenerator : MonoBehaviour
 
     void OnGUI()
     {
-        // Definir el estilo de la etiqueta
         GUIStyle style = new GUIStyle();
         style.fontSize = 24;
         style.normal.textColor = Color.white;
         style.fontStyle = FontStyle.Bold;
 
-        // Crear un recuadro semi-transparente
         Texture2D bgTexture = new Texture2D(1, 1);
         bgTexture.SetPixel(0, 0, new Color(0, 0, 0, 0.5f));
         bgTexture.Apply();
         style.normal.background = bgTexture;
 
-        // Definir el tamaño y posición del recuadro
         Rect boxRect = new Rect(10, 10, 300, 150);
         GUI.Box(boxRect, "Estadísticas de la Simulación", style);
 
-        // Definir el estilo para el texto dentro del recuadro
         GUIStyle labelStyle = new GUIStyle();
         labelStyle.fontSize = 20;
         labelStyle.normal.textColor = Color.white;
 
-        // Mostrar las estadísticas
         GUI.Label(new Rect(20, 40, 280, 30), $"Pasos: {currentStep}", labelStyle);
         GUI.Label(new Rect(20, 70, 280, 30), $"Víctimas Rescatadas: {rescuedVictims}", labelStyle);
         GUI.Label(new Rect(20, 100, 280, 30), $"Daño Acumulado: {totalDamage}", labelStyle);
@@ -509,11 +483,8 @@ public class MapGenerator : MonoBehaviour
 
     void UpdateGameState(SimulationData data)
     {
-
-                // Actualizar estado de las paredes
         if (data.walls != null)
         {
-            // Crear un conjunto de paredes que deberían existir
             HashSet<string> currentWalls = new HashSet<string>();
             foreach (var wall in data.walls)
             {
@@ -521,18 +492,15 @@ public class MapGenerator : MonoBehaviour
                 currentWalls.Add(wallKey);
             }
 
-            // Verificar cada pared existente
             List<string> wallsToRemove = new List<string>();
             foreach (var wallPair in wallObjects)
             {
-                // Si una pared ya no está en los datos de la simulación, debe ser destruida
                 if (!currentWalls.Contains(wallPair.Key))
                 {
                     wallsToRemove.Add(wallPair.Key);
                 }
             }
 
-            // Destruir las paredes que ya no existen
             foreach (var wallKey in wallsToRemove)
             {
                 if (wallObjects.TryGetValue(wallKey, out GameObject wallObject))
@@ -542,10 +510,10 @@ public class MapGenerator : MonoBehaviour
                 }
             }
         }
-        // Actualizar agentes
+
         foreach (var agent in data.agents)
         {
-            // Ajustar la posición del agente para alinearse con el grid
+
             Vector3 targetPosition = new Vector3(
                 (agent.pos[1] - 1) * cellSize + cellSize + 2,
                 1f,
@@ -562,14 +530,13 @@ public class MapGenerator : MonoBehaviour
             StartCoroutine(MoveAgent(agents[agent.id], targetPosition));
         }
 
-        // Limpiar fuegos anteriores
+
         foreach (var fire in activeFireObjects)
         {
             Destroy(fire);
         }
         activeFireObjects.Clear();
 
-        // Crear nuevos fuegos con posiciones corregidas
         foreach (var fire in data.fires)
         {
             Vector3 position = new Vector3(
@@ -582,14 +549,14 @@ public class MapGenerator : MonoBehaviour
             activeFireObjects.Add(fireObj);
         }
 
-        // Limpiar humo anterior
+
         foreach (var smoke in activeSmokeObjects)
         {
             Destroy(smoke);
         }
         activeSmokeObjects.Clear();
 
-        // Crear nuevo humo con posiciones corregidas
+
         if (data.smokes != null)
         {
             foreach (var smoke in data.smokes)
@@ -605,10 +572,10 @@ public class MapGenerator : MonoBehaviour
             }
         }
 
-        // Gestionar víctimas
+
         if (data.victims != null)
         {
-            // Crear o actualizar víctimas
+
             foreach (var victim in data.victims)
             {
                 Vector3 victimPosition = new Vector3(
@@ -625,7 +592,7 @@ public class MapGenerator : MonoBehaviour
                 }
             }
 
-            // Eliminar víctimas que ya no están en los datos de la simulación (rescatadas)
+
             var currentVictimIds = new HashSet<int>(data.victims.Select(v => v.id));
             var victimsToRemove = victims.Keys.Where(id => !currentVictimIds.Contains(id)).ToList();
 
@@ -640,7 +607,7 @@ public class MapGenerator : MonoBehaviour
             }
         }
 
-        // Actualizar estadísticas - Movido fuera del bloque de víctimas
+
         rescuedVictims = data.rescued_victims;
         totalDamage = data.total_damage;
     }
@@ -651,7 +618,7 @@ public class MapGenerator : MonoBehaviour
         Vector3 startPosition = agent.transform.position;
         Quaternion originalRotation = playerPrefab.transform.rotation;
         
-        // Mantener la rotación original del prefab
+
         agent.transform.rotation = originalRotation;
 
         while (Vector3.Distance(agent.transform.position, targetPosition) > 0.01f)
@@ -661,18 +628,18 @@ public class MapGenerator : MonoBehaviour
             float fractionOfJourney = distanceCovered / journeyLength;
             
             agent.transform.position = Vector3.Lerp(startPosition, targetPosition, fractionOfJourney);
-            // Mantener la rotación original durante todo el movimiento
+
             agent.transform.rotation = originalRotation;
             
             yield return null;
         }
 
         agent.transform.position = targetPosition;
-        // Asegurar que la rotación final sea la correcta
+
         agent.transform.rotation = originalRotation;
     }
 
-    // Métodos para control de la simulación
+
     public void PausarSimulacion()
     {
         isSimulationRunning = false;
@@ -691,7 +658,7 @@ public class MapGenerator : MonoBehaviour
     {
         isSimulationRunning = false;
         currentStep = 0;
-        // Limpiar todos los objetos actuales
+
         foreach (var agent in agents.Values)
         {
             if (agent != null) Destroy(agent);
@@ -713,7 +680,6 @@ public class MapGenerator : MonoBehaviour
         }
         victims.Clear();
 
-        // Reiniciar la simulación
         StartSimulation();
     }
 
@@ -765,9 +731,8 @@ public class SimulationData
     public float[][] grid;
     public List<WallData> walls;
     public List<DoorData> doors;
-    public int rescued_victims;      // Nuevo campo
-    public int total_damage;         // Nuevo campo
-    // public int steps;             // Eliminado porque se maneja automáticamente
+    public int rescued_victims; 
+    public int total_damage;
 }
 
 [System.Serializable]
@@ -812,6 +777,6 @@ public class DoorData
 [System.Serializable]
 public class VictimData
 {
-    public int id;           // Identificador único de la víctima
-    public int[] pos;        // Posición de la víctima en el grid (formato [fila, columna])
+    public int id;
+    public int[] pos;
 }

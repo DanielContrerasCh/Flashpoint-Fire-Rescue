@@ -7,10 +7,8 @@ CORS(app)
 
 def parse_map_file(filename):
     with open(filename, 'r') as file:
-        # Leer todas las líneas excepto la última (que es el comentario)
         lines = file.readlines()[:]
     
-    # Inicializar el diccionario de respuesta
     map_data = {
         "cells": [],
         "pointsOfInterest": [],
@@ -21,14 +19,11 @@ def parse_map_file(filename):
     
     current_line = 0
     
-    # Parsear las celdas (6 líneas)
     for i in range(6):
-        # Dividir la línea en grupos de 4 dígitos
         cell_row = re.findall(r'\d{4}', lines[current_line].strip())
         map_data["cells"].append(cell_row)
         current_line += 1
     
-    # Parsear puntos de interés (3 líneas)
     for _ in range(3):
         row, col, poi_type = lines[current_line].strip().split()
         map_data["pointsOfInterest"].append({
@@ -38,7 +33,6 @@ def parse_map_file(filename):
         })
         current_line += 1
     
-    # Parsear posiciones de fuego (10 líneas)
     for _ in range(10):
         row, col = map(int, lines[current_line].strip().split())
         map_data["firePositions"].append({
@@ -47,7 +41,6 @@ def parse_map_file(filename):
         })
         current_line += 1
     
-    # Parsear puertas (8 líneas)
     for _ in range(8):
         r1, c1, r2, c2 = map(int, lines[current_line].strip().split())
         map_data["doors"].append({
@@ -58,7 +51,6 @@ def parse_map_file(filename):
         })
         current_line += 1
     
-    # Parsear puntos de entrada (4 líneas)
     for _ in range(4):
         row, col = map(int, lines[current_line].strip().split())
         map_data["entryPoints"].append({
@@ -75,7 +67,6 @@ def get_map():
         map_data = parse_map_file('map.txt')
         return jsonify(map_data)
     except Exception as e:
-        # Agregar más información de debugging
         import traceback
         error_info = {
             "error": str(e),
@@ -85,10 +76,9 @@ def get_map():
     
 @app.route('/api/simulation', methods=['GET'])
 def run_simulation():
-    from AgentesModelo import BoardModel, parse_file  # Asegúrate de que el archivo del modelo esté en el path de Python
+    from AgentesModelo import BoardModel, parse_file
     
     try:
-        # Lee el archivo del mapa para inicializar el modelo
         walls, markers, fire_markers, doors, entrances = parse_file('map.txt')
         model = BoardModel(6, 8, walls, doors, entrances, markers, fire_markers)
         
