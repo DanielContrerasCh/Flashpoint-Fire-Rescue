@@ -92,7 +92,6 @@ def run_simulation():
         walls, markers, fire_markers, doors, entrances = parse_file('map.txt')
         model = BoardModel(6, 8, walls, doors, entrances, markers, fire_markers)
         
-        simulation_steps = 500  # Número de pasos de simulación
         simulation_results = []
         
         while not model.check_termination_conditions():
@@ -103,6 +102,8 @@ def run_simulation():
                 "fires": grid_state["Fires"],
                 "smokes": grid_state["Smokes"],
                 "agents": [{"id": agent.unique_id, "pos": agent.pos} for agent in model.schedule.agents],
+                "rescued_victims": model.rescued_victims,
+                "total_damage": model.total_damage
             })
         
         return jsonify(simulation_results)
