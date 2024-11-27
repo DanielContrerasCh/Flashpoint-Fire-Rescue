@@ -8,7 +8,7 @@ CORS(app)
 def parse_map_file(filename):
     with open(filename, 'r') as file:
         # Leer todas las líneas excepto la última (que es el comentario)
-        lines = file.readlines()[:-1]
+        lines = file.readlines()[:]
     
     # Inicializar el diccionario de respuesta
     map_data = {
@@ -101,6 +101,37 @@ def validate_map():
             "valid": False,
             "error": str(e)
         }), 400
+    
+@app.route('/api/simulation', methods=['GET'])
+def run_simulation():
+    from AgentesModelo import BoardModel, parse_file  # Asegúrate de que el archivo del modelo esté en el path de Python
+    
+    try:
+        # Lee el archivo del mapa para inicializar el modelo
+        walls, markers, fire_markers, doors, entrances = parse_file('map.txt')
+        model = BoardModel(6, 8, walls, doors, entrances, markers, fire_markers)
+        
+        simulation_steps = 100  # Número de pasos de simulación
+        simulation_results = []
+        
+        for _ in range(simulation_steps):
+            model.step()
+            grid_state = model.datacollector.get_model_vars_dataframe().iloc[-1].to_dict()
+            simulation_results.append({
+                "grid": grid_state["Grid"].tolist(),
+                "fires": grid_state["Fires"],
+                "smokes": grid_state["Smokes"],
+                "agents": [{"id": agent.unique_id, "pos": agent.pos} for agent in model.schedule.agents],
+            })
+        
+        return jsonify(simulation_results)
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

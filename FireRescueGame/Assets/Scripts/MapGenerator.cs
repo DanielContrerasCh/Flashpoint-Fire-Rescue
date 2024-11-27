@@ -14,7 +14,10 @@ public class MapGenerator : MonoBehaviour
     public GameObject firePrefab;
     public GameObject entryPointPrefab;
     public GameObject victimPrefab;
+    public GameObject smokePrefab;
+    public GameObject playerPrefab;
     public GameObject falseAlarmPrefab;
+    public GameObject POIPrefab;
 
     public float cellSize = 2f;
     private const float WALL_LENGTH = 2f;
@@ -90,71 +93,71 @@ void GenerateScenario(ScenarioData scenario)
         }
 
         // Modificar el procesamiento de los puntos de entrada
-    foreach (var entry in scenario.entryPoints)
-    {
-        string cellValue = scenario.cells[entry.x - 1][entry.y - 1];
-        
-        // Determinar qué paredes remover basado en la posición del entry point
-        bool isTopEdge = entry.x == 1;
-        bool isBottomEdge = entry.x == scenario.cells.Length;
-        bool isLeftEdge = entry.y == 1;
-        bool isRightEdge = entry.y == scenario.cells[0].Length;
-
-        if (isTopEdge)
+        foreach (var entry in scenario.entryPoints)
         {
-            // Remover pared superior y paredes adyacentes que comparten esquina
-            wallsToSkip.Add($"{entry.x},{entry.y},top");
-            if (isLeftEdge)
+            string cellValue = scenario.cells[entry.x - 1][entry.y - 1];
+            
+            // Determinar qué paredes remover basado en la posición del entry point
+            bool isTopEdge = entry.x == 1;
+            bool isBottomEdge = entry.x == scenario.cells.Length;
+            bool isLeftEdge = entry.y == 1;
+            bool isRightEdge = entry.y == scenario.cells[0].Length;
+
+            if (isTopEdge)
             {
+                // Remover pared superior y paredes adyacentes que comparten esquina
+                wallsToSkip.Add($"{entry.x},{entry.y},top");
+                if (isLeftEdge)
+                {
+                    wallsToSkip.Add($"{entry.x},{entry.y},left");
+                }
+                if (isRightEdge)
+                {
+                    wallsToSkip.Add($"{entry.x},{entry.y},right");
+                }
+            }
+            else if (isBottomEdge)
+            {
+                // Remover pared inferior y paredes adyacentes que comparten esquina
+                wallsToSkip.Add($"{entry.x},{entry.y},bottom");
+                if (isLeftEdge)
+                {
+                    wallsToSkip.Add($"{entry.x},{entry.y},left");
+                }
+                if (isRightEdge)
+                {
+                    wallsToSkip.Add($"{entry.x},{entry.y},right");
+                }
+            }
+            else if (isLeftEdge)
+            {
+                // Remover pared izquierda y paredes adyacentes que comparten esquina
                 wallsToSkip.Add($"{entry.x},{entry.y},left");
             }
-            if (isRightEdge)
+            else if (isRightEdge)
             {
+                // Remover pared derecha y paredes adyacentes que comparten esquina
                 wallsToSkip.Add($"{entry.x},{entry.y},right");
             }
-        }
-        else if (isBottomEdge)
-        {
-            // Remover pared inferior y paredes adyacentes que comparten esquina
-            wallsToSkip.Add($"{entry.x},{entry.y},bottom");
-            if (isLeftEdge)
-            {
-                wallsToSkip.Add($"{entry.x},{entry.y},left");
-            }
-            if (isRightEdge)
-            {
-                wallsToSkip.Add($"{entry.x},{entry.y},right");
-            }
-        }
-        else if (isLeftEdge)
-        {
-            // Remover pared izquierda y paredes adyacentes que comparten esquina
-            wallsToSkip.Add($"{entry.x},{entry.y},left");
-        }
-        else if (isRightEdge)
-        {
-            // Remover pared derecha y paredes adyacentes que comparten esquina
-            wallsToSkip.Add($"{entry.x},{entry.y},right");
-        }
 
-        // Manejar las paredes de las celdas adyacentes
-        if (isTopEdge && entry.x > 1)
-        {
-            wallsToSkip.Add($"{entry.x - 1},{entry.y},bottom");
+            // Manejar las paredes de las celdas adyacentes
+            if (isTopEdge && entry.x > 1)
+            {
+                wallsToSkip.Add($"{entry.x - 1},{entry.y},bottom");
+            }
+            if (isBottomEdge && entry.x < scenario.cells.Length)
+            {
+                wallsToSkip.Add($"{entry.x + 1},{entry.y},top");
+            }
+            if (isLeftEdge && entry.y > 1)
+            {
+                wallsToSkip.Add($"{entry.x},{entry.y - 1},right");
+            }
+            if (isRightEdge && entry.y < scenario.cells[0].Length)
+            {
+                wallsToSkip.Add($"{entry.x},{entry.y + 1},left");
+            }
         }
-        if (isBottomEdge && entry.x < scenario.cells.Length)
-        {
-            wallsToSkip.Add($"{entry.x + 1},{entry.y},top");
-        }
-        if (isLeftEdge && entry.y > 1)
-        {
-            wallsToSkip.Add($"{entry.x},{entry.y - 1},right");
-        }
-        if (isRightEdge && entry.y < scenario.cells[0].Length)
-        {
-            wallsToSkip.Add($"{entry.x},{entry.y + 1},left");
-        }
-    }
 
         // Generar paredes, saltando aquellas que coinciden con puertas o puntos de entrada
         for (int row = 0; row < scenario.cells.Length; row++)
@@ -237,45 +240,20 @@ void GenerateScenario(ScenarioData scenario)
 
     void GenerateOtherElements(ScenarioData scenario)
     {
-    // Generar puntos de interés
-    foreach (var poi in scenario.pointsOfInterest)
-    {
-        Vector3 position = new Vector3(
-            (poi.col - 1) * cellSize + cellSize,
-            1,
-            -((poi.row - 1) * cellSize + cellSize)
-        );
-        
-        GameObject prefab = poi.type == "v" ? victimPrefab : falseAlarmPrefab;
-        
-        // Usar la rotación del prefab correspondiente
-        Quaternion rotation = prefab.transform.rotation;
-        
-        // Instanciar el prefab con la rotación correcta
-        GameObject instantiatedPOI = Instantiate(prefab, position, rotation, _itemsContainer);
-        
-        // Asegurar que la escala del prefab se preserve
-        instantiatedPOI.transform.localScale = prefab.transform.localScale;
-    }
-
-    // Generar fuegos
-    foreach (var fire in scenario.firePositions)
-    {
-        Vector3 position = new Vector3(
-            (fire.y - 1) * cellSize + cellSize,
-            1,
-            -((fire.x - 1) * cellSize + cellSize)
-        );
-
-        // Usar la rotación del prefab
-        Quaternion rotation = firePrefab.transform.rotation;
-
-        // Instanciar el prefab con la rotación correcta
-        GameObject instantiatedFire = Instantiate(firePrefab, position, rotation, _itemsContainer);
-
-        // Asegurar que la escala del prefab se preserve
-        instantiatedFire.transform.localScale = firePrefab.transform.localScale;
-    }
+        // Generar puntos de interés
+        foreach (var poi in scenario.pointsOfInterest)
+        {
+            Vector3 position = new Vector3(
+                (poi.col - 1) * cellSize + cellSize,
+                1,
+                -((poi.row - 1) * cellSize + cellSize)
+            );
+            
+            GameObject prefab = poi.type == "v" ? victimPrefab : falseAlarmPrefab;
+            Quaternion rotation = prefab.transform.rotation;
+            GameObject instantiatedPOI = Instantiate(prefab, position, rotation, _itemsContainer);
+            instantiatedPOI.transform.localScale = prefab.transform.localScale;
+        }
 
         // Generar puertas
         foreach (var door in scenario.doors)
@@ -305,80 +283,67 @@ void GenerateScenario(ScenarioData scenario)
             Vector3 midPoint = (pos1 + pos2) / 2;
             float rotation = (door.r1 == door.r2) ? 90 : 0;
             GameObject doorObj = Instantiate(doorPrefab, midPoint, Quaternion.Euler(0, rotation, 0), _itemsContainer);
-
-            // Asegurar que la puerta tenga la etiqueta "Door"
             doorObj.tag = "Door";
         }
 
- // Generar puntos de entrada
-    foreach (var entry in scenario.entryPoints)
-    {
-        Vector3 position = Vector3.zero;
-        Quaternion rotation = Quaternion.identity;
-
-        // Determinar la orientación basada en la posición
-        // Asumiendo que las filas van de 1 a N y columnas de 1 a M
-        // y que la fila 1 es la superior, fila N la inferior,
-        // columna 1 la izquierda y columna M la derecha
-
-        int totalRows = scenario.cells.Length;
-        int totalCols = scenario.cells[0].Length;
-
-        bool isTop = entry.x == 1;
-        bool isBottom = entry.x == totalRows;
-        bool isLeft = entry.y == 1;
-        bool isRight = entry.y == totalCols;
-
-        // Calcular posición y rotación según la pared
-        if (isTop)
+        // Generar puntos de entrada
+        foreach (var entry in scenario.entryPoints)
         {
-            // Pared superior
-            position = new Vector3(
-                (entry.y - 1) * cellSize + cellSize / 2,
-                0,
-                -(entry.x) * cellSize /2
-            );
-            rotation = Quaternion.Euler(0, 0, 0); // Facing south
-        }
-        else if (isBottom)
-        {
-            // Pared inferior
-            position = new Vector3(
-                (entry.y -1) * cellSize + cellSize / 2,
-                0,
-                -(entry.x) * cellSize - 1
-            );
-            rotation = Quaternion.Euler(0, 0, 0); // Facing north
-        }
-        else if (isLeft)
-        {
-            // Pared izquierda
-            position = new Vector3(
-                (entry.y) * cellSize -1,
-                0,
-                -(entry.x - 1) * cellSize - cellSize / 2
-            );
-            rotation = Quaternion.Euler(0, 90, 0); // Facing east
-        }
-        else if (isRight)
-        {
-            // Pared derecha
-            position = new Vector3(
-                entry.y * cellSize +1,
-                0,
-                -(entry.x - 1) * cellSize - cellSize / 2
-            );
-            rotation = Quaternion.Euler(0, 90, 0); // Facing west
-        }
-        else
-        {
-            Debug.LogWarning($"Punto de entrada en posición ({entry.x}, {entry.y}) no está en el borde del mapa.");
-            continue; // Saltar si no está en el borde
-        }
+            Vector3 position = Vector3.zero;
+            Quaternion rotation = Quaternion.identity;
 
-        // Instanciar el punto de entrada con la posición y rotación calculadas
-        Instantiate(entryPointPrefab, position, rotation, _itemsContainer);
-    }
+            int totalRows = scenario.cells.Length;
+            int totalCols = scenario.cells[0].Length;
+
+            bool isTop = entry.x == 1;
+            bool isBottom = entry.x == totalRows;
+            bool isLeft = entry.y == 1;
+            bool isRight = entry.y == totalCols;
+
+            if (isTop)
+            {
+                position = new Vector3(
+                    (entry.y - 1) * cellSize + cellSize / 2,
+                    0,
+                    -(entry.x) * cellSize /2
+                );
+                rotation = Quaternion.Euler(0, 0, 0);
+            }
+            else if (isBottom)
+            {
+                position = new Vector3(
+                    (entry.y -1) * cellSize + cellSize / 2,
+                    0,
+                    -(entry.x) * cellSize - 1
+                );
+                rotation = Quaternion.Euler(0, 0, 0);
+            }
+            else if (isLeft)
+            {
+                position = new Vector3(
+                    (entry.y) * cellSize -1,
+                    0,
+                    -(entry.x - 1) * cellSize - cellSize / 2
+                );
+                rotation = Quaternion.Euler(0, 90, 0);
+            }
+            else if (isRight)
+            {
+                position = new Vector3(
+                    entry.y * cellSize +1,
+                    0,
+                    -(entry.x - 1) * cellSize - cellSize / 2
+                );
+                rotation = Quaternion.Euler(0, 90, 0);
+            }
+            else
+            {
+                Debug.LogWarning($"Punto de entrada en posición ({entry.x}, {entry.y}) no está en el borde del mapa.");
+                continue;
+            }
+
+            Instantiate(entryPointPrefab, position, rotation, _itemsContainer);
+        }
     }
 
     void RemoveOverlappingWalls()
