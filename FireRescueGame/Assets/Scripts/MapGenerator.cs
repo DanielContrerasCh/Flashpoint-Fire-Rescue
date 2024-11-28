@@ -195,7 +195,7 @@ public class MapGenerator : MonoBehaviour
                     );
                     GameObject wall = Instantiate(wallPrefab, topWallPos, Quaternion.identity, _wallsContainer);
                     wall.transform.Translate(cellSize / 2, 0, 0);
-                    wallObjects[$"{row + 1},{col + 1},N"] = wall;
+                    wallObjects[$"{row + 1},{col + 1},North"] = wall;
                 }
 
                 // Pared izquierda (Oeste)
@@ -208,7 +208,7 @@ public class MapGenerator : MonoBehaviour
                     );
                     GameObject wall = Instantiate(wallPrefab, leftWallPos, Quaternion.Euler(0, 90, 0), _wallsContainer);
                     wall.transform.Translate(0, 0, -cellSize / 2);
-                    wallObjects[$"{row + 1},{col + 1},W"] = wall;
+                    wallObjects[$"{row + 1},{col + 1},West"] = wall;
                 }
 
                 // Pared inferior (Sur)
@@ -221,7 +221,7 @@ public class MapGenerator : MonoBehaviour
                     );
                     GameObject wall = Instantiate(wallPrefab, bottomWallPos, Quaternion.identity, _wallsContainer);
                     wall.transform.Translate(cellSize / 2, 0, 0);
-                    wallObjects[$"{row + 1},{col + 1},S"] = wall;
+                    wallObjects[$"{row + 1},{col + 1},South"] = wall;
                 }
 
                 // Pared derecha (Este)
@@ -234,7 +234,7 @@ public class MapGenerator : MonoBehaviour
                     );
                     GameObject wall = Instantiate(wallPrefab, rightWallPos, Quaternion.Euler(0, 90, 0), _wallsContainer);
                     wall.transform.Translate(0, 0, -cellSize / 2);
-                    wallObjects[$"{row + 1},{col + 1},E"] = wall;
+                    wallObjects[$"{row + 1},{col + 1},East"] = wall;
                 }
             }
         }

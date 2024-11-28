@@ -250,7 +250,7 @@ GameObject:
   m_Component:
   - component: {fileID: 245178790}
   - component: {fileID: 245178789}
-  - component: {fileID: 245178791}
+  - component: {fileID: 245178792}
   m_Layer: 0
   m_Name: MapGenerator
   m_TagString: Untagged
@@ -275,12 +275,14 @@ MonoBehaviour:
   doorPrefab: {fileID: 6800740584299889491, guid: 50ef206c5d62f744cb84794ad57a539c, type: 3}
   firePrefab: {fileID: 955283435394126971, guid: 33ecf36cfc96cef44af1c0a6443584e5, type: 3}
   entryPointPrefab: {fileID: 5488108292033109636, guid: 220ecb7f2076eee4fa09d4a4f6c555cb, type: 3}
-  victimPrefab: {fileID: 6030829398981205866, guid: d08fae65fe6b4374ea0036e1e41202b4, type: 3}
+  victimPrefab: {fileID: 8841642898469593206, guid: 49fc82d37f3f9ca4aa24bd6ca0590d25, type: 3}
   smokePrefab: {fileID: 6687143284356829083, guid: a23d89a25bcdcf84eb45ea6e05899e67, type: 3}
-  playerPrefab: {fileID: 7897335872777562440, guid: bc9d1c6c1e5993e4ea93345f4e0a8d64, type: 3}
-  falseAlarmPrefab: {fileID: 7972686340126499235, guid: 4c00d4e527e5ce04dbbb4920cec10370, type: 3}
+  playerPrefab: {fileID: 1148788846826352706, guid: 07e1ce94afce342408eaed0307898d84, type: 3}
+  falseAlarmPrefab: {fileID: 5804812264468743438, guid: 5101bbe2017783f458fe07a3acb9f616, type: 3}
   POIPrefab: {fileID: 5804812264468743438, guid: 5101bbe2017783f458fe07a3acb9f616, type: 3}
   cellSize: 2
+  stepInterval: 0.1
+  moveSpeed: 5
 --- !u!4 &245178790
 Transform:
   m_ObjectHideFlags: 0
@@ -296,7 +298,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &245178791
+--- !u!114 &245178792
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -305,13 +307,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 245178788}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 688ada6a9e89ac64bae5840c2ff3d0be, type: 3}
+  m_Script: {fileID: 11500000, guid: 983510ad7b8ef0345982683f3cadb53d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  stepInterval: 0.3
-  moveSpeed: 5
-  smokePrefab: {fileID: 6687143284356829083, guid: a23d89a25bcdcf84eb45ea6e05899e67, type: 3}
-  firePrefab: {fileID: 955283435394126971, guid: 33ecf36cfc96cef44af1c0a6443584e5, type: 3}
+  doorClosedPrefab: {fileID: 6800740584299889491, guid: 50ef206c5d62f744cb84794ad57a539c, type: 3}
+  doorOpenPrefab: {fileID: 5488108292033109636, guid: 220ecb7f2076eee4fa09d4a4f6c555cb, type: 3}
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0
