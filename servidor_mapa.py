@@ -64,7 +64,7 @@ def parse_map_file(filename):
 @app.route('/api/map')
 def get_map():
     try:
-        map_data = parse_map_file('map.txt')
+        map_data = parse_map_file('final.txt')
         return jsonify(map_data)
     except Exception as e:
         import traceback
@@ -79,7 +79,7 @@ def run_simulation():
     from AgentesModelo import BoardModel, parse_file
     
     try:
-        walls, markers, fire_markers, doors, entrances = parse_file('map.txt')
+        walls, markers, fire_markers, doors, entrances = parse_file('final.txt')
         model = BoardModel(6, 8, walls, doors, entrances, markers, fire_markers)
         
         simulation_results = []
